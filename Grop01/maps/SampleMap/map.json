@@ -1,0 +1,37 @@
+{
+  "audio": "",
+  "notes": [
+    {
+      "type": "tap",
+      "time": 1000,
+      "lane": 0
+    },
+    {
+      "type": "tap",
+      "time": 1500,
+      "lane": 1
+    },
+    {
+      "type": "hold",
+      "time": 2000,
+      "duration": 1000,
+      "lane": 2
+    },
+    {
+      "type": "hold",
+      "time": 3500,
+      "duration": 500,
+      "lane": 3
+    },
+    {
+      "type": "tap",
+      "time": 4500,
+      "lane": 4
+    },
+    {
+      "type": "tap",
+      "time": 4500,
+      "lane": 5
+    }
+  ]
+}
