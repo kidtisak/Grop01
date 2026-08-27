@@ -78,9 +78,12 @@ def select_song_menu():
         
         y_offset = 150
         rects = []
+        delete_rects = []
         for i, folder in enumerate(folders):
-            rect = draw_text(f"{i+1}. {folder}", small_font, LIGHT_GRAY, screen, WIDTH // 2, y_offset)
+            rect = draw_text(f"{i+1}. {folder}", small_font, LIGHT_GRAY, screen, WIDTH // 2 - 50, y_offset)
+            del_rect = draw_text('[X]', small_font, RED, screen, WIDTH // 2 + 250, y_offset)
             rects.append((rect, folder))
+            delete_rects.append((del_rect, folder))
             y_offset += 50
             
         # Add new song button
@@ -96,6 +99,13 @@ def select_song_menu():
                 if add_rect.collidepoint(event.pos):
                     if add_new_song(maps_dir):
                         folders = get_folders() # Refresh list
+                
+                # Check delete buttons
+                for del_rect, folder in delete_rects:
+                    if del_rect.collidepoint(event.pos):
+                        shutil.rmtree(os.path.join(maps_dir, folder), ignore_errors=True)
+                        folders = get_folders()
+                        
                 for rect, folder in rects:
                     if rect.collidepoint(event.pos):
                         return os.path.join(maps_dir, folder)
