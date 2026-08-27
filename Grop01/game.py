@@ -23,8 +23,17 @@ class Game:
         self.audio_path = None
         
         self.start_time = 0
-        self.score = 0
+        self.raw_score = 0
         self.combo = 0
+        self.max_combo = 0
+        
+        self.stats = {
+            "PERFECT": 0,
+            "GREAT": 0,
+            "GOOD": 0,
+            "MISS": 0
+        }
+        
         self.font = pygame.font.SysFont(None, 36)
         self.large_font = pygame.font.SysFont(None, 72)
         
@@ -37,7 +46,19 @@ class Game:
         self.has_music = False
         self.music_started = False
         
+        self.state = 'PLAYING' # 'PLAYING' or 'RESULTS'
+        
         self.load_map(os.path.join(map_folder, "map.json"))
+        
+        # Calculate max possible raw score
+        # Tap = 300
+        # Hold = 300 (head) + 300 (tail) = 600
+        self.max_raw_score = sum(600 if n.type == 'hold' else 300 for n in self.notes)
+        if self.max_raw_score == 0:
+            self.max_raw_score = 1 # Prevent division by zero
+
+    def get_display_score(self):
+        return int((self.raw_score / self.max_raw_score) * 100000)
 
     def load_map(self, filename):
         try:
@@ -65,11 +86,9 @@ class Game:
 
     def get_time(self):
         if self.has_music and self.music_started:
-            # pygame.mixer.music.get_pos() returns ms since playback started
             pos = pygame.mixer.music.get_pos()
             if pos != -1:
                 return pos
-            # If music finished but game still running
             return pygame.time.get_ticks() - self.start_time
         else:
             return pygame.time.get_ticks() - self.start_time
@@ -81,42 +100,57 @@ class Game:
         while running:
             current_time = pygame.time.get_ticks()
             
-            # Start music after delay
-            if current_time >= self.start_time and not self.music_started:
-                self.start_time = current_time
-                if self.has_music:
-                    pygame.mixer.music.play()
-                self.music_started = True
-            
-            elapsed_time = self.get_time() if self.music_started else (current_time - self.start_time)
-            
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+            if self.state == 'PLAYING':
+                # Start music after delay
+                if current_time >= self.start_time and not self.music_started:
+                    self.start_time = current_time
                     if self.has_music:
-                        pygame.mixer.music.stop()
-                    return False
+                        pygame.mixer.music.play()
+                    self.music_started = True
                 
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
+                elapsed_time = self.get_time() if self.music_started else (current_time - self.start_time)
+                
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
                         if self.has_music:
                             pygame.mixer.music.stop()
-                        return True
-                    for i, key in enumerate(KEYS):
-                        if event.key == key:
-                            self.handle_keydown(i, elapsed_time)
-                            
-                if event.type == pygame.KEYUP:
-                    for i, key in enumerate(KEYS):
-                        if event.key == key:
-                            self.handle_keyup(i, elapsed_time)
-                            
-            self.update(elapsed_time)
-            self.draw(elapsed_time)
+                        return False
+                    
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            if self.has_music:
+                                pygame.mixer.music.stop()
+                            return True
+                        for i, key in enumerate(KEYS):
+                            if event.key == key:
+                                self.handle_keydown(i, elapsed_time)
+                                
+                    if event.type == pygame.KEYUP:
+                        for i, key in enumerate(KEYS):
+                            if event.key == key:
+                                self.handle_keyup(i, elapsed_time)
+                                
+                self.update(elapsed_time)
+                self.draw_playing(elapsed_time)
+                
+            elif self.state == 'RESULTS':
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        return False
+                    if event.type == pygame.KEYDOWN:
+                        if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                            return True
+                self.draw_results()
             
             pygame.display.flip()
             self.clock.tick(FPS)
             
         return True
+
+    def update_combo(self):
+        self.combo += 1
+        if self.combo > self.max_combo:
+            self.max_combo = self.combo
 
     def handle_keydown(self, lane, current_time):
         perfect_ms = PERFECT_WINDOW / self.speed_px_per_ms
@@ -141,17 +175,21 @@ class Game:
 
     def register_hit(self, note, text, color, score):
         note.hit = True
-        self.score += score
+        self.raw_score += score
+        self.stats[text] += 1
+        
         if note.type == 'hold':
             note.holding = True
         else:
-            self.combo += 1
+            self.update_combo()
+            
         self.set_feedback(text, color)
 
     def register_miss(self, note):
         note.missed = True
         note.holding = False
         self.combo = 0
+        self.stats["MISS"] += 1
         self.set_feedback("MISS", RED)
 
     def handle_keyup(self, lane, current_time):
@@ -165,8 +203,8 @@ class Game:
                 
                 if time_diff <= miss_ms:
                     note.released = True
-                    self.combo += 1
-                    self.score += 300 # Add more score for completing hold
+                    self.update_combo()
+                    self.raw_score += 300 # Add score for completing hold
                     self.set_feedback("PERFECT", CYAN)
                 else:
                     self.register_miss(note)
@@ -179,17 +217,33 @@ class Game:
 
     def update(self, elapsed_time):
         miss_ms = MISS_WINDOW / self.speed_px_per_ms
+        all_done = True
+        
         for note in self.notes:
+            # Check misses
             if not note.hit and not note.missed:
                 if elapsed_time - note.time > miss_ms:
                     self.register_miss(note)
             
-            # If it's a hold note being held, check if we passed the end + miss window without releasing
             if note.type == 'hold' and note.holding:
                 if elapsed_time - (note.time + note.duration) > miss_ms:
                     self.register_miss(note)
+                    
+            # Check if finished
+            if note.type == 'tap':
+                if not (note.hit or note.missed):
+                    all_done = False
+            elif note.type == 'hold':
+                if not (note.released or note.missed):
+                    all_done = False
+                    
+        # Change state if all notes are processed and a little time has passed
+        if all_done and len(self.notes) > 0:
+            last_time = max((n.time + n.duration) for n in self.notes)
+            if elapsed_time > last_time + 1500: # Wait 1.5s after last note
+                self.state = 'RESULTS'
 
-    def draw(self, elapsed_time):
+    def draw_playing(self, elapsed_time):
         self.screen.fill(BLACK)
         
         for i in range(NUM_LANES):
@@ -205,7 +259,6 @@ class Game:
                 x = LANE_START_X + note.lane * LANE_WIDTH
                 color = LANE_COLORS[note.lane]
                 
-                # Current position of the note's head
                 y = HIT_Y - (note.time - elapsed_time) * self.speed_px_per_ms
                 
                 if note.type == 'tap':
@@ -215,20 +268,17 @@ class Game:
                     end_y = HIT_Y - (note.time + note.duration - elapsed_time) * self.speed_px_per_ms
                     
                     if note.holding:
-                        y = HIT_Y # Pin the head to the hit line if holding
+                        y = HIT_Y
                         
-                    # Draw only if part of the hold is on screen
                     if end_y < HEIGHT and y > 0:
-                        # Draw body
-                        body_color = tuple(max(0, c - 100) for c in color) # Darker body
+                        body_color = tuple(max(0, c - 100) for c in color)
                         pygame.draw.rect(self.screen, body_color, (x + 10, end_y, LANE_WIDTH - 20, y - end_y))
-                        # Draw tail
                         pygame.draw.rect(self.screen, color, (x + 5, end_y - NOTE_HEIGHT//2, LANE_WIDTH - 10, NOTE_HEIGHT))
-                        # Draw head (if not held)
                         if not note.holding:
                             pygame.draw.rect(self.screen, color, (x + 5, y - NOTE_HEIGHT//2, LANE_WIDTH - 10, NOTE_HEIGHT))
                             
-        score_text = self.font.render(f"Score: {self.score}", True, WHITE)
+        # Draw Score scaled to 100,000
+        score_text = self.font.render(f"Score: {self.get_display_score():06d}", True, WHITE)
         combo_text = self.font.render(f"Combo: {self.combo}", True, WHITE)
         self.screen.blit(score_text, (10, 10))
         self.screen.blit(combo_text, (10, 50))
@@ -240,3 +290,30 @@ class Game:
             
         inst_text = self.font.render("Press ESC to exit", True, LIGHT_GRAY)
         self.screen.blit(inst_text, (WIDTH - 200, 10))
+
+    def draw_results(self):
+        self.screen.fill((20, 20, 40))
+        
+        title = self.large_font.render("SONG CLEARED", True, YELLOW)
+        self.screen.blit(title, (WIDTH//2 - title.get_width()//2, 80))
+        
+        score_txt = self.large_font.render(f"Score: {self.get_display_score():06d}", True, WHITE)
+        self.screen.blit(score_txt, (WIDTH//2 - score_txt.get_width()//2, 160))
+        
+        # Stats
+        y_offset = 260
+        stats_labels = [
+            ("PERFECT", CYAN, self.stats["PERFECT"]),
+            ("GREAT", GREEN, self.stats["GREAT"]),
+            ("GOOD", YELLOW, self.stats["GOOD"]),
+            ("MISS", RED, self.stats["MISS"]),
+            ("MAX COMBO", WHITE, self.max_combo)
+        ]
+        
+        for label, color, value in stats_labels:
+            txt = self.font.render(f"{label}: {value}", True, color)
+            self.screen.blit(txt, (WIDTH//2 - 100, y_offset))
+            y_offset += 40
+            
+        inst = self.font.render("Press ESC or ENTER to return to menu", True, LIGHT_GRAY)
+        self.screen.blit(inst, (WIDTH//2 - inst.get_width()//2, HEIGHT - 80))
