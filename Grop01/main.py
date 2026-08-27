@@ -125,6 +125,47 @@ def select_song_menu():
         pygame.display.flip()
         clock.tick(FPS)
 
+def how_to_play_menu():
+    font = pygame.font.SysFont(None, 64)
+    small_font = pygame.font.SysFont(None, 36)
+    
+    while True:
+        screen.fill(BLACK)
+        draw_text('HOW TO PLAY', font, YELLOW, screen, WIDTH // 2, 80)
+        
+        instructions = [
+            "Controls: Use keys S, D, F, J, K, L to hit the notes.",
+            "",
+            "Tap Notes (Small Rectangles):",
+            "Press the key exactly when the note hits the white line.",
+            "",
+            "Hold Notes (Long Rectangles):",
+            "Press and HOLD the key when the head hits the line.",
+            "RELEASE the key exactly when the tail hits the line.",
+            "",
+            "Scoring:",
+            "Perfect > Great > Good > Miss.",
+            "Max score is 100,000. Try to get a Full Combo!"
+        ]
+        
+        y_offset = 150
+        for line in instructions:
+            draw_text(line, small_font, WHITE, screen, WIDTH // 2, y_offset)
+            y_offset += 30
+            
+        draw_text('Press ESC or ENTER to Return', small_font, GRAY, screen, WIDTH // 2, HEIGHT - 50)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                    return
+                    
+        pygame.display.flip()
+        clock.tick(FPS)
+
 def main_menu():
     font = pygame.font.SysFont(None, 64)
     small_font = pygame.font.SysFont(None, 36)
@@ -136,7 +177,8 @@ def main_menu():
         
         play_rect = draw_text('1. Play Game', small_font, LIGHT_GRAY, screen, WIDTH // 2, HEIGHT // 2)
         editor_rect = draw_text('2. Map Editor', small_font, LIGHT_GRAY, screen, WIDTH // 2, HEIGHT // 2 + 50)
-        quit_rect = draw_text('3. Quit', small_font, LIGHT_GRAY, screen, WIDTH // 2, HEIGHT // 2 + 100)
+        htp_rect = draw_text('3. How to Play', small_font, LIGHT_GRAY, screen, WIDTH // 2, HEIGHT // 2 + 100)
+        quit_rect = draw_text('4. Quit', small_font, LIGHT_GRAY, screen, WIDTH // 2, HEIGHT // 2 + 150)
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -148,6 +190,8 @@ def main_menu():
                     return 'game'
                 if editor_rect.collidepoint(event.pos):
                     return 'editor'
+                if htp_rect.collidepoint(event.pos):
+                    return 'htp'
                 if quit_rect.collidepoint(event.pos):
                     pygame.quit()
                     sys.exit()
@@ -157,7 +201,9 @@ def main_menu():
                     return 'game'
                 if event.key == pygame.K_2:
                     return 'editor'
-                if event.key == pygame.K_3 or event.key == pygame.K_ESCAPE:
+                if event.key == pygame.K_3:
+                    return 'htp'
+                if event.key == pygame.K_4 or event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
                     
@@ -168,7 +214,9 @@ def main():
     while True:
         choice = main_menu()
         
-        if choice in ('game', 'editor'):
+        if choice == 'htp':
+            how_to_play_menu()
+        elif choice in ('game', 'editor'):
             map_folder = select_song_menu()
             if map_folder:
                 if choice == 'game':
