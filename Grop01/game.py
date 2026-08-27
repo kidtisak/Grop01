@@ -72,6 +72,8 @@ class Game:
                         pygame.mixer.music.load(self.audio_path)
                         self.has_music = True
                         
+                self.text_events = data.get('text_events', [])
+                        
                 for n in data['notes']:
                     ntype = n.get('type', 'tap')
                     time = n['time']
@@ -287,6 +289,15 @@ class Game:
             feedback_text = self.large_font.render(self.feedback, True, self.feedback_color)
             fw = feedback_text.get_width()
             self.screen.blit(feedback_text, (WIDTH//2 - fw//2, HEIGHT//2 - 100))
+            
+        # Draw tutorial text events if active
+        if hasattr(self, 'text_events'):
+            for ev in self.text_events:
+                t = ev.get('time', 0)
+                dur = ev.get('duration', 3000)
+                if t <= elapsed_time <= t + dur:
+                    txt = self.font.render(ev.get('text', ''), True, YELLOW)
+                    self.screen.blit(txt, (WIDTH//2 - txt.get_width()//2, HEIGHT//2))
             
         inst_text = self.font.render("Press ESC to exit", True, LIGHT_GRAY)
         self.screen.blit(inst_text, (WIDTH - 200, 10))

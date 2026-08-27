@@ -1,0 +1,21 @@
+{
+  "audio": "",
+  "text_events": [
+    {"time": 1000, "duration": 3000, "text": "Welcome to the Tutorial!"},
+    {"time": 4500, "duration": 4000, "text": "Use S, D, F, J, K, L to play."},
+    {"time": 9000, "duration": 4000, "text": "Tap the key when the note hits the line."},
+    {"time": 15000, "duration": 4000, "text": "Great! Now let's try Hold Notes."},
+    {"time": 20000, "duration": 4000, "text": "Press and HOLD the key..."},
+    {"time": 24000, "duration": 4000, "text": "...and RELEASE when the tail hits!"},
+    {"time": 30000, "duration": 4000, "text": "You're ready to play! Try a real song next."}
+  ],
+  "notes": [
+    {"type": "tap", "time": 10000, "lane": 2},
+    {"type": "tap", "time": 11000, "lane": 3},
+    {"type": "tap", "time": 12000, "lane": 1},
+    {"type": "tap", "time": 13000, "lane": 4},
+    
+    {"type": "hold", "time": 21000, "duration": 2000, "lane": 2},
+    {"type": "hold", "time": 25000, "duration": 2000, "lane": 3}
+  ]
+}
