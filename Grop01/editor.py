@@ -19,6 +19,7 @@ class Editor:
         self.speed_px_per_ms = 0.5
         
         self.drag_start = None # (time, lane)
+        self.live_holds = {} # lane: note_dict
         
         self.is_playing = False
         self.play_start_time = 0
@@ -75,6 +76,14 @@ class Editor:
                 else:
                     self.scroll_time = self.scroll_at_play_start + current_pos
                     
+                    # Update live holds durations
+                    for lane, note in self.live_holds.items():
+                        current_snap = round(self.scroll_time / 10) * 10
+                        duration = current_snap - note['time']
+                        if duration > 100:
+                            note['type'] = 'hold'
+                            note['duration'] = duration
+                    
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     if self.is_playing:
@@ -103,9 +112,22 @@ class Editor:
                     elif self.is_playing:
                         for i, key in enumerate(KEYS):
                             if event.key == key:
-                                # Snap to nearest 10ms instead of 50ms for live tapping precision
                                 snap_time = round(self.scroll_time / 10) * 10
-                                self.notes.append({'type': 'tap', 'time': snap_time, 'lane': i})
+                                new_note = {'type': 'tap', 'time': snap_time, 'lane': i}
+                                self.notes.append(new_note)
+                                self.live_holds[i] = new_note
+                                
+                elif event.type == pygame.KEYUP:
+                    if self.is_playing:
+                        for i, key in enumerate(KEYS):
+                            if event.key == key and i in self.live_holds:
+                                note = self.live_holds[i]
+                                current_snap = round(self.scroll_time / 10) * 10
+                                duration = current_snap - note['time']
+                                if duration > 100:
+                                    note['type'] = 'hold'
+                                    note['duration'] = duration
+                                del self.live_holds[i]
                         
                 elif event.type == pygame.MOUSEBUTTONDOWN and not self.is_playing:
                     if event.button == 1: # Left click
